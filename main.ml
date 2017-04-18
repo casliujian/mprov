@@ -17,7 +17,7 @@ let input_paras pl =
 	get_para_from_stdin 2 pl
 
 
-let choose_to_prove output_file input_file = 
+let choose_to_prove ncores output_file input_file = 
 	try
 		let (modl_tbl, modl) = Parser.input Lexer.token (Lexing.from_channel (open_in input_file)) in
 		let modl_tbl1 = Hashtbl.create (Hashtbl.length modl_tbl) 
@@ -27,22 +27,26 @@ let choose_to_prove output_file input_file =
 		let modl3 = modul223 modl2 in
 		let modl4 = modul324 modl3 in
 		let modl5 = modul425 modl4 in
-		match output_file with
-		| None -> Prover.prove_model modl5
-		| Some filename -> 
+		match (ncores, output_file) with
+		| (1, None) -> Prover.prove_model modl5
+		| (n, None) -> Prover_multicore.prove_model modl5 ncores
+		| (_, Some filename) -> 
 			let out = open_out filename in
 			Prover_output.Seq_Prover.prove_model modl5 out filename;
 			close_out out
 	with Parsing.Parse_error -> print_endline ("parse error at line: "^(string_of_int (!(Lexer.line_num))))
+
 	
 
 let main () = 
-	let output_file = ref None in
+	let output_file = ref None 
+	and ncores = ref 1 in
 	Arg.parse
 		[
+			"-ncores", Arg.Int (fun i -> ncores := i), " The numbers of cores";
 			"-output", Arg.String (fun s -> output_file := Some s), " The output file";
 		]
-		(fun s -> choose_to_prove !output_file s)
+		(fun s -> choose_to_prove !ncores !output_file s)
 		"Usage: sctl [-output <filename>] <filename>"
 
 let _ = 
