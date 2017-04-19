@@ -351,25 +351,61 @@ and prove_fairs cont modl =
 				and levl2 = levl^"2" in
 				let fresh_fairs = (if !orig_fairs = [] then fresh_fairs fairs else !orig_fairs) in
 				Queue.push s Parallel_worker.work_queue_aray.(index);
-				let f ia = 
-					
+				let f (fairs, ia) = 
+					if !has_fairs then begin
+						let result2 = prove_fairs (Cont (State_set.empty, fresh_fairs, levl2, subst_s fml2 (State ia), Basic true, Basic false, [], [])) modl in
+						if not result2 then begin
+							let result_fair = prove_fairs (Cont (State_set.empty, fresh_fairs, "-1", EG (SVar "dummy", Top, State ia))) modl in
+							if result_fair then begin
+								Parallel_worker.stop_world false;
+								None
+							end else 
+								None
+						end else begin
+							let result1 = prove_fairs (Cont (State_set.empty, fresh_fairs, levl1, subst_s fml1 (State ia), Basic true, Basic false, [], [])) modl in
+							if result1 then begin
+								Parallel_worker.stop_world true;
+								None
+							end else begin
+								let next_set = next s modl.transitions modl.var_index_tbl in
+								let filtered_next = State_set.filter 
+									(fun e -> 
+										(* let i = (Hashtbl.hash e) mod ncores in *)
+										not (Parallel_worker.in_global_merge e levl)
+									) 
+									next_set in
+								Some filtered_next
+							end
+						end
+					end else begin
+						let result2 = prove_fairs (Cont (State_set.empty, fresh_fairs, levl2, subst_s fml2 (State ia), Basic true, Basic false, [], [])) modl in
+						if not result2 then begin
+							Parallel_worker.stop_world false;
+							None
+						end else begin
+							let result1 = prove_fairs (Cont (State_set.empty, fresh_fairs, levl1, subst_s fml1 (State ia), Basic true, Basic false, [], [])) modl in
+							if result1 then begin
+								Parallel_worker.stop_world true;
+								None
+							end else begin
+								let next_set = next s modl.transitions modl.var_index_tbl in
+								let filtered_next = State_set.filter 
+									(fun e -> 
+										(* let i = (Hashtbl.hash e) mod ncores in *)
+										not (Parallel_worker.in_global_merge e levl)
+									) 
+									next_set in
+								Some filtered_next
+							end
+						end
+					end in
+
 				for i = 0 to ncores - 1 do
 					Domain.spawn 
-						(fun () -> 
-							let ia = ref [||] in
-							Mutex.lock mutex_aray.(i);
-							if Queue.is_empty work_queue_aray.(i) then
-								Condition.wait condition_aray.(i) mutex_aray.aray.(i);
-							ia := Queue.pop work_queue_aray.(i);
-							Mutex.unlock mutex_aray.(i);
-							let result2 = prove_fairs (Cont (State_set.empty, fresh_fairs, levl2, subst_s fml2 (State !ia), Basic true, Basic false, [], [])) modl in
-							if not result2 then
-								
-						)
+						(fun () -> Parallel_worker.work f i)
 				done;
-
-
-
+				let result = Parallel_worker.get_result () in
+				if result then prove_fairs contl modl else prove_fairs contr modl
 			| _ -> (print_endline ("Unable to prove: "^(fml_to_string fml)); raise Unable_to_prove)
         end
 
