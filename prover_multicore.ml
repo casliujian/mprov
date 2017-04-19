@@ -103,7 +103,14 @@ let fresh_fairs_modl modl =
 		has_fairs := true;
 		List.map (fun (e) -> (e, State_set.empty)) fairs
 	)
+module WP = 
+struct
+	type t = State_set.elt
+	let ncores = 2 
+end
+module Parallel_worker = Worker.Make(WP)
 
+(* 
 let true_merge = Hashtbl.create 10
 let false_merge = Hashtbl.create 10
 
@@ -125,7 +132,7 @@ let add_to_false_merge s levl modl =
 		let bss = Hashtbl.find false_merge levl in
 		Hashtbl.replace false_merge levl (State_set.add s bss)
 	with Not_found -> print_endline ("level not found in finding false merge: "^levl); exit 1
-
+ *)
 let add_true_to_cont levl s cont = 
 	match cont with
 	| Cont (gamma, fairs, cont_levl, fml, contl, contr, ts, fs) -> Cont (gamma, fairs, cont_levl, fml, contl, contr, (levl, s)::ts, fs)
@@ -137,7 +144,7 @@ let add_false_to_cont levl s cont =
 	| _ -> cont
 
 (****************************)
-
+(* 
 	(*whether state s is already in an existing merge*)
 let merges = Hashtbl.create 10
 let pre_process_merges sub_fml_tbl = 
@@ -156,7 +163,7 @@ let clear_global_merge level =
 	Hashtbl.replace merges level (State_set.empty)
 let get_global_merge level = 
 	Hashtbl.find merges level
-
+ *)
 
 let generate_EX_cont gamma fairs levl x fml next contl contr = 
     State_set.fold (fun elem b ->
@@ -248,8 +255,8 @@ and prove_fairs cont modl =
     | Basic b -> b
     | Cont (gamma, fairs, levl, fml, contl, contr, ts, fs) ->
 		(
-			List.iter (fun (a, b) -> if a<>"-1" then add_to_true_merge b a modl) ts;
-			List.iter (fun (a, b) -> if a<>"-1" then add_to_false_merge b a modl) fs
+			List.iter (fun (a, b) -> if a<>"-1" then Parallel_worker.add_to_true_merge b a) ts;
+			List.iter (fun (a, b) -> if a<>"-1" then Parallel_worker.add_to_false_merge b a) fs
 		);
         begin
             match fml with
@@ -339,17 +346,13 @@ and prove_fairs cont modl =
 					let fairs_new = List.map (fun (e, ss) -> if satisfy_fair e s modl then (e, State_set.add s gamma) else (e,ss)) fairs in
 					prove_fairs (generate_AR_cont gamma fairs_new levl x y fml1 fml2 s next contl contr) modl *)
 				
-				let tmp_result = ref None in
-				let ncores = 4 in
-				let mutex_aray = Array.init ncores (fun () -> Mutex.create ()) in
-				let condition_aray = Array.init ncores (fun () -> Condition.create ()) in
-				let work_queue_aray = Array.init ncores (fun () -> Queue.create ()) in
-				let merge_aray = Array.init ncores (fun () -> State_set.empty) in
 				let index = (Hashtbl.hash s) mod ncores in
 				let levl1 = levl^"1"
 				and levl2 = levl^"2" in
 				let fresh_fairs = (if !orig_fairs = [] then fresh_fairs fairs else !orig_fairs) in
-				Queue.push s work_queue_aray.(index);
+				Queue.push s Parallel_worker.work_queue_aray.(index);
+				let f ia = 
+					
 				for i = 0 to ncores - 1 do
 					Domain.spawn 
 						(fun () -> 
