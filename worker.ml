@@ -3,7 +3,6 @@ open Modul
 
 module type Work_paras = 
 sig 
-	type t
 	val ncores : int 
 end;;
 
@@ -11,8 +10,8 @@ module Make(WP: Work_paras) =
 struct 
 	type message = 
 		| Terminate
-		| New_element of WP.t
-	let result = ref None
+		| New_element of State_set.elt
+	let result: bool option ref = ref None
 	let ncores = WP.ncores
 	let mutex_aray = Array.init ncores (fun i -> Mutex.create ()) 
 	let condition_aray = Array.init ncores (fun i -> Condition.create ()) 
@@ -22,13 +21,13 @@ struct
 	let eu_ar_merge_aray = Array.init ncores (fun i -> Hashtbl.create 10)
 	let result_mutex = Mutex.create ()
 	let result_signal = Condition.create ()
-	let in_global_merge e levl = 
+	let in_global_merge e (levl:string) (modl:Modul.model) = 
 		try
 			let index = (Hashtbl.hash e) mod ncores in
 			State_set.mem e (Hashtbl.find (eu_ar_merge_aray.(index)) levl)
 		with
 		| Not_found -> false
-	let add_to_global_merge e levl = 
+	let add_to_global_merge e (levl:string) (modl:Modul.model) = 
 		let index = (Hashtbl.hash e) mod ncores in
 		try
 			let orig_set = Hashtbl.find (eu_ar_merge_aray.(index)) levl in
@@ -36,23 +35,23 @@ struct
 		with
 		| Not_found -> 
 			Hashtbl.replace (eu_ar_merge_aray.(index)) levl (State_set.singleton e)
-	let clear_global_merge levl = 
+	let clear_global_merge (levl:string) = 
 		for i = 0 to ncores - 1 do
 			Hashtbl.replace (eu_ar_merge_aray.(i)) levl (State_set.empty)
 		done
-	let is_in_true_merge e levl = 
+	let is_in_true_merge e (levl:string) (modl:Modul.model) = 
 		try
 			let index = (Hashtbl.hash e) mod ncores in
 			State_set.mem e (Hashtbl.find (true_merge_aray.(index)) levl)
 		with
 		| Not_found -> false
-	let is_in_false_merge e levl = 
+	let is_in_false_merge e (levl:string) (modl:Modul.model) = 
 		try
 			let index = (Hashtbl.hash e) mod ncores in
 			State_set.mem e (Hashtbl.find (false_merge_aray.(index)) levl)
 		with
 		| Not_found -> false
-	let add_to_true_merge e levl = 
+	let add_to_true_merge e (levl:string) (modl:Modul.model) = 
 		let index = (Hashtbl.hash e) mod ncores in
 		try
 			let orig_set = Hashtbl.find (true_merge_aray.(index)) levl in
@@ -60,7 +59,7 @@ struct
 		with
 		| Not_found -> 
 			Hashtbl.replace (true_merge_aray.(index)) levl (State_set.singleton e)
-	let add_to_false_merge e levl = 
+	let add_to_false_merge e (levl:string) (modl:Modul.model) = 
 		let index = (Hashtbl.hash e) mod ncores in
 		try
 			let orig_set = Hashtbl.find (false_merge_aray.(index)) levl in

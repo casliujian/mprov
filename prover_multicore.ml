@@ -105,7 +105,6 @@ let fresh_fairs_modl modl =
 	)
 module WP = 
 struct
-	type t = State_set.elt
 	let ncores = 2 
 end
 module Parallel_worker = Worker.Make(WP)
@@ -255,8 +254,8 @@ and prove_fairs cont modl =
     | Basic b -> b
     | Cont (gamma, fairs, levl, fml, contl, contr, ts, fs) ->
 		(
-			List.iter (fun (a, b) -> if a<>"-1" then Parallel_worker.add_to_true_merge b a) ts;
-			List.iter (fun (a, b) -> if a<>"-1" then Parallel_worker.add_to_false_merge b a) fs
+			List.iter (fun (a, b) -> if a<>"-1" then Parallel_worker.add_to_true_merge b a modl) ts;
+			List.iter (fun (a, b) -> if a<>"-1" then Parallel_worker.add_to_false_merge b a modl) fs
 		);
         begin
             match fml with
@@ -286,8 +285,8 @@ and prove_fairs cont modl =
                 let next = next s modl.transitions modl.var_index_tbl in
                 prove_fairs (generate_EX_cont gamma fairs levl x fml1 next contl contr) modl
             | EG (x, fml1, State s) -> 
-				if (levl <> "-1") && (is_in_true_merge s levl modl) then prove_fairs contl modl else
-				if (levl <> "-1") && (is_in_true_merge s levl modl) then prove_fairs contr modl else 
+				if (levl <> "-1") && (Parallel_worker.is_in_true_merge s levl modl) then prove_fairs contl modl else
+				if (levl <> "-1") && (Parallel_worker.is_in_true_merge s levl modl) then prove_fairs contr modl else 
                 if State_set.mem s gamma 
                 then  
                     let is_fair = list_conditional fairs true (fun (e, ss) -> State_set.mem s ss) in
@@ -302,8 +301,8 @@ and prove_fairs cont modl =
 					(*List.iter (fun (e, ss) -> print_endline ((str_expr e)^"-->"^(string_of_int (State_set.cardinal ss)))) fairs_new;*)
                     prove_fairs (generate_EG_cont gamma fairs_new levl x fml1 s next contl contr) modl
             | AF (x, fml1, State s) -> 
-				if is_in_true_merge s levl modl then prove_fairs contl modl else
-				if is_in_false_merge s levl modl then prove_fairs contr modl else
+				if Parallel_worker.is_in_true_merge s levl modl then prove_fairs contl modl else
+				if Parallel_worker.is_in_false_merge s levl modl then prove_fairs contr modl else
 				begin
 					if State_set.mem s gamma
 					then 
@@ -319,17 +318,18 @@ and prove_fairs cont modl =
 				end
             | EU (x, y, fml1, fml2, State s) -> 
             	if State_set.is_empty gamma 
-					then clear_global_merge levl 
-					else add_to_global_merge gamma levl modl;
-					if in_global_merge s levl modl
-					then
-						let is_fair = list_conditional fairs true (fun (e, ss) -> State_set.mem s ss) in
-						if is_fair then prove_fairs contr modl else prove_fairs contl modl 
-						(* prove_fairs contr modl *)
-					else
-						let next = next s modl.transitions modl.var_index_tbl in
-						let fairs_new = List.map (fun (e, ss) -> if satisfy_fair e s modl then (e, State_set.add s gamma) else (e,ss)) fairs in
-						prove_fairs (generate_EU_cont gamma fairs_new levl x y fml1 fml2 s next contl contr) modl
+					then Parallel_worker.clear_global_merge levl 
+				else 
+					State_set.iter (fun e -> Parallel_worker.add_to_global_merge e levl modl) gamma;
+				if Parallel_worker.in_global_merge s levl modl
+				then
+					let is_fair = list_conditional fairs true (fun (e, ss) -> State_set.mem s ss) in
+					if is_fair then prove_fairs contr modl else prove_fairs contl modl 
+					(* prove_fairs contr modl *)
+				else
+					let next = next s modl.transitions modl.var_index_tbl in
+					let fairs_new = List.map (fun (e, ss) -> if satisfy_fair e s modl then (e, State_set.add s gamma) else (e,ss)) fairs in
+					prove_fairs (generate_EU_cont gamma fairs_new levl x y fml1 fml2 s next contl contr) modl
             | AR (x, y, fml1, fml2, State s) ->
             	(* (
             		if State_set.is_empty gamma
@@ -346,53 +346,56 @@ and prove_fairs cont modl =
 					let fairs_new = List.map (fun (e, ss) -> if satisfy_fair e s modl then (e, State_set.add s gamma) else (e,ss)) fairs in
 					prove_fairs (generate_AR_cont gamma fairs_new levl x y fml1 fml2 s next contl contr) modl *)
 				
-				let index = (Hashtbl.hash s) mod ncores in
+				let index = (Hashtbl.hash s) mod 2 in
 				let levl1 = levl^"1"
 				and levl2 = levl^"2" in
 				let fresh_fairs = (if !orig_fairs = [] then fresh_fairs fairs else !orig_fairs) in
-				Queue.push s Parallel_worker.work_queue_aray.(index);
-				let f (fairs, ia) = 
+				Queue.push (Parallel_worker.New_element s) Parallel_worker.work_queue_aray.(index);
+				let f ia = 
+					Printf.printf "processing proving...\n";
 					if !has_fairs then begin
-						let result2 = prove_fairs (Cont (State_set.empty, fresh_fairs, levl2, subst_s fml2 (State ia), Basic true, Basic false, [], [])) modl in
+						let result2 = prove_fairs (Cont (State_set.empty, fresh_fairs, levl2, subst_s fml2 y (State ia), Basic true, Basic false, [], [])) modl in
 						if not result2 then begin
-							let result_fair = prove_fairs (Cont (State_set.empty, fresh_fairs, "-1", EG (SVar "dummy", Top, State ia))) modl in
+							let result_fair = prove_fairs (Cont (State_set.empty, fresh_fairs, "-1", EG (SVar "dummy", Top, State ia), Basic true, Basic false, [], [])) modl in
 							if result_fair then begin
 								Parallel_worker.stop_world false;
 								None
 							end else 
 								None
 						end else begin
-							let result1 = prove_fairs (Cont (State_set.empty, fresh_fairs, levl1, subst_s fml1 (State ia), Basic true, Basic false, [], [])) modl in
+							let result1 = prove_fairs (Cont (State_set.empty, fresh_fairs, levl1, subst_s fml1 x (State ia), Basic true, Basic false, [], [])) modl in
 							if result1 then begin
 								Parallel_worker.stop_world true;
 								None
 							end else begin
+								Parallel_worker.add_to_global_merge ia levl modl;
 								let next_set = next s modl.transitions modl.var_index_tbl in
 								let filtered_next = State_set.filter 
 									(fun e -> 
 										(* let i = (Hashtbl.hash e) mod ncores in *)
-										not (Parallel_worker.in_global_merge e levl)
+										not (Parallel_worker.in_global_merge e levl modl)
 									) 
 									next_set in
 								Some filtered_next
 							end
 						end
 					end else begin
-						let result2 = prove_fairs (Cont (State_set.empty, fresh_fairs, levl2, subst_s fml2 (State ia), Basic true, Basic false, [], [])) modl in
+						let result2 = prove_fairs (Cont (State_set.empty, fresh_fairs, levl2, subst_s fml2 y (State ia), Basic true, Basic false, [], [])) modl in
 						if not result2 then begin
 							Parallel_worker.stop_world false;
 							None
 						end else begin
-							let result1 = prove_fairs (Cont (State_set.empty, fresh_fairs, levl1, subst_s fml1 (State ia), Basic true, Basic false, [], [])) modl in
+							let result1 = prove_fairs (Cont (State_set.empty, fresh_fairs, levl1, subst_s fml1 x (State ia), Basic true, Basic false, [], [])) modl in
 							if result1 then begin
 								Parallel_worker.stop_world true;
 								None
 							end else begin
+								Parallel_worker.add_to_global_merge ia levl modl;
 								let next_set = next s modl.transitions modl.var_index_tbl in
 								let filtered_next = State_set.filter 
 									(fun e -> 
 										(* let i = (Hashtbl.hash e) mod ncores in *)
-										not (Parallel_worker.in_global_merge e levl)
+										not (Parallel_worker.in_global_merge e levl modl)
 									) 
 									next_set in
 								Some filtered_next
@@ -400,7 +403,7 @@ and prove_fairs cont modl =
 						end
 					end in
 
-				for i = 0 to ncores - 1 do
+				for i = 0 to 2 - 1 do
 					Domain.spawn 
 						(fun () -> Parallel_worker.work f i)
 				done;
@@ -418,7 +421,7 @@ and prove_fairs cont modl =
 		| (s, fml) :: lst' -> 
 			((let nnf_fml = nnf fml in 
 			print_endline (fml_to_string (nnf_fml));
-			pre_process_merges (select_sub_fmls (sub_fmls nnf_fml "1"));
+			(*pre_process_merges (select_sub_fmls (sub_fmls nnf_fml "1"));*)
 			let b = (prove_fairs (Cont (State_set.empty, List.map (fun e -> (e, State_set.empty)) modl.fairness, "1", Formula.subst_s (nnf_fml) (SVar "ini") (State modl.init_assign), Basic true, Basic false, [], [])) modl) in
 			 print_endline (s ^ ": " ^ (string_of_bool b)));
 			 prove_lst lst') in prove_lst spec_lst
