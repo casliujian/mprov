@@ -353,6 +353,7 @@ and prove_fairs cont modl =
 				Queue.push (Parallel_worker.New_element s) Parallel_worker.work_queue_aray.(index);
 				let f ia = 
 					Printf.printf "processing proving...\n";
+					flush stdout;
 					if !has_fairs then begin
 						let result2 = prove_fairs (Cont (State_set.empty, fresh_fairs, levl2, subst_s fml2 y (State ia), Basic true, Basic false, [], [])) modl in
 						if not result2 then begin
@@ -361,7 +362,7 @@ and prove_fairs cont modl =
 								Parallel_worker.stop_world false;
 								None
 							end else 
-								None
+								Some State_set.empty
 						end else begin
 							let result1 = prove_fairs (Cont (State_set.empty, fresh_fairs, levl1, subst_s fml1 x (State ia), Basic true, Basic false, [], [])) modl in
 							if result1 then begin
@@ -402,7 +403,6 @@ and prove_fairs cont modl =
 							end
 						end
 					end in
-
 				for i = 0 to 2 - 1 do
 					Domain.spawn 
 						(fun () -> Parallel_worker.work f i)
