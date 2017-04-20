@@ -75,7 +75,6 @@ try
 with _ -> print_endline "exception encountered in ia_to_bin."; exit (-1)
 (*****)
 
-
 type fairs = (formula * State_set.t) list
 
 type continuation = 
