@@ -14,18 +14,18 @@ struct
 		| New_element of WP.t
 	let result = ref None
 	let ncores = WP.ncores
-	let mutex_aray = Array.init ncores (fun () -> Mutex.create ()) 
-	let condition_aray = Array.init ncores (fun () -> Condition.create ()) 
-	let work_queue_aray = Array.init ncores (fun () -> Queue.create ()) 
-	let true_merge_aray = Array.init ncores (fun () -> Hashtbl.create 10)
-	let false_merge_aray = Array.init ncores (fun () -> Hashtbl.create 10)
-	let eu_ar_merge_aray = Array.init ncores (fun () -> Hashtbl.create 10)
+	let mutex_aray = Array.init ncores (fun i -> Mutex.create ()) 
+	let condition_aray = Array.init ncores (fun i -> Condition.create ()) 
+	let work_queue_aray = Array.init ncores (fun i -> Queue.create ()) 
+	let true_merge_aray = Array.init ncores (fun i -> Hashtbl.create 10)
+	let false_merge_aray = Array.init ncores (fun i -> Hashtbl.create 10)
+	let eu_ar_merge_aray = Array.init ncores (fun i -> Hashtbl.create 10)
 	let result_mutex = Mutex.create ()
 	let result_signal = Condition.create ()
 	let in_global_merge e levl = 
 		try
 			let index = (Hashtbl.hash e) mod ncores in
-			State_set.mem e (Hashtbl.find (eu_ar_merge_aray.(index)))
+			State_set.mem e (Hashtbl.find (eu_ar_merge_aray.(index)) levl)
 		with
 		| Not_found -> false
 	let add_to_global_merge e levl = 
@@ -38,18 +38,18 @@ struct
 			Hashtbl.replace (eu_ar_merge_aray.(index)) levl (State_set.singleton e)
 	let clear_global_merge levl = 
 		for i = 0 to ncores - 1 do
-			Hashtbl.replace (eu_ar_merge_aray.(index)) levl (State_set.empty)
+			Hashtbl.replace (eu_ar_merge_aray.(i)) levl (State_set.empty)
 		done
 	let is_in_true_merge e levl = 
 		try
 			let index = (Hashtbl.hash e) mod ncores in
-			State_set.mem e (Hashtbl.find (true_merge_aray.(index)))
+			State_set.mem e (Hashtbl.find (true_merge_aray.(index)) levl)
 		with
 		| Not_found -> false
 	let is_in_false_merge e levl = 
 		try
 			let index = (Hashtbl.hash e) mod ncores in
-			State_set.mem e (Hashtbl.find (false_merge_aray.(index)))
+			State_set.mem e (Hashtbl.find (false_merge_aray.(index)) levl)
 		with
 		| Not_found -> false
 	let add_to_true_merge e levl = 

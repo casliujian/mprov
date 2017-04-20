@@ -1,6 +1,7 @@
 open Term
 open Formula
 open Modul
+open Worker
 (* open Bdd *)
 
 

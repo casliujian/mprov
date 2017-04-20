@@ -1,12 +1,12 @@
-linux: term.ml formula.ml modul.ml prover.ml prover_multicore.ml prover_output.ml lexer.mll parser.mly main.ml
+linux: term.ml formula.ml modul.ml prover.ml worker.ml prover_multicore.ml prover_output.ml lexer.mll parser.mly main.ml
 	ocamllex lexer.mll       
 	ocamlyacc parser.mly 
-	ocamlopt -o sctl term.ml formula.ml modul.ml prover.ml prover_multicore.ml prover_output.ml parser.mli parser.ml lexer.ml main.ml
+	ocamlopt -thread -o sctl unix.cmxa threads.cmxa term.ml formula.ml modul.ml prover.ml worker.ml prover_multicore.ml prover_output.ml parser.mli parser.ml lexer.ml main.ml
 
-win: term.ml formula.ml modul.ml prover.ml prover_multicore.ml prover_output.ml lexer.mll parser.mly main.ml
+win: term.ml formula.ml modul.ml prover.ml worker.ml prover_multicore.ml prover_output.ml lexer.mll parser.mly main.ml
 	ocamllex lexer.mll       
 	ocamlyacc parser.mly 
-	ocamlopt -o sctl.exe term.ml formula.ml modul.ml prover.ml prover_multicore.ml prover_output.ml parser.mli parser.ml lexer.ml main.ml
+	ocamlopt -thread -o sctl.exe unix.cmxa threads.cmxa term.ml formula.ml modul.ml prover.ml worker.ml prover_multicore.ml prover_output.ml parser.mli parser.ml lexer.ml main.ml
 
 clean:
 	rm -f *.cm[ioax]
