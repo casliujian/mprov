@@ -181,11 +181,12 @@ let add_to_global_merge ss level modl =
 	Hashtbl.replace merges level (State_set.fold (fun elem b -> let bs = ia_to_bin elem modl in Bdd.add_int_array bs b) ss sts)
   *)   
 let in_global_merge s level modl = 
+	ignore (Hashtbl.hash s);
 	State_set.mem s (Hashtbl.find merges level)
 
 let add_to_global_merge ss level modl = 
 	let sts = Hashtbl.find merges level in
-	Hashtbl.replace merges level (State_set.fold (fun elem b -> State_set.add elem b) ss sts)
+	Hashtbl.replace merges level (State_set.fold (fun elem b -> ignore (Hashtbl.hash elem); State_set.add elem b) ss sts)
     
 let clear_global_merge level = 
 	Hashtbl.replace merges level (State_set.empty)
