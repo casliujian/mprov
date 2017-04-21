@@ -98,8 +98,8 @@ struct
 			(*printf "thread %d running...\n" i;
 			flush stdout;*)
 			if Queue.is_empty work_queue_aray.(i) then begin
-				printf "queue in thread %d is empty\n" i;
-				flush stdout;
+				(*printf "queue in thread %d is empty\n" i;
+				flush stdout;*)
 				Mutex.lock mutex_aray.(i);
 				Condition.wait condition_aray.(i) mutex_aray.(i);
 				Mutex.unlock mutex_aray.(i)
@@ -116,9 +116,9 @@ struct
 					let oes = f e in begin
 						match oes with
 						| None -> (*means a result has been produced*)
-							Mutex.lock result_mutex;
+							(*Mutex.lock result_mutex;*)
 							Condition.signal result_signal;
-							Mutex.unlock result_mutex;
+							(*Mutex.unlock result_mutex;*)
 							Queue.clear work_queue_aray.(i)
 						| Some es -> 
 							State_set.iter 
