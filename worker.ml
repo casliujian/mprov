@@ -20,7 +20,7 @@ struct
 	let false_merge_aray = Array.init ncores (fun i -> Hashtbl.create 10)
 	let eu_ar_merge_aray = Array.init ncores (fun i -> Hashtbl.create 10)
 	let result_mutex = Mutex.create ()
-	let global_merge_mutex = Mutex.create ()
+	let global_merge_mutex = Array.init ncores (fun i -> Mutex.create ()) 
 	let result_signal = Condition.create ()
 	let in_global_merge e (levl:string) (modl:Modul.model) = 
 		try
@@ -35,9 +35,11 @@ struct
 	let add_to_global_merge e (levl:string) (modl:Modul.model) = 
 		let index = (Hashtbl.hash e) mod ncores in
 		try
+			(*Mutex.lock global_merge_mutex.(index);*)
 			let orig_set = Hashtbl.find (eu_ar_merge_aray.(index)) levl in
 			(*Mutex.lock global_merge_mutex;*)
 			Hashtbl.replace (eu_ar_merge_aray.(index)) levl (State_set.add e orig_set)
+			(*Mutex.unlock global_merge_mutex.(index)*)
 			(*;
 			Mutex.unlock global_merge_mutex*)
 		with
@@ -93,17 +95,17 @@ struct
 	let work f i = 
 		let running = ref true in
 		while !running do
-			printf "thread %d running...\n" i;
-			flush stdout;
+			(*printf "thread %d running...\n" i;
+			flush stdout;*)
 			if Queue.is_empty work_queue_aray.(i) then begin
-				printf "queue in thread %d is empty\n" i;
-				flush stdout;
+				(*printf "queue in thread %d is empty\n" i;
+				flush stdout;*)
 				Mutex.lock mutex_aray.(i);
 				Condition.wait condition_aray.(i) mutex_aray.(i);
 				Mutex.unlock mutex_aray.(i)
 			end else begin
-				printf "queue in thread %d is not empty\n" i;
-				flush stdout;
+				(*printf "queue in thread %d is not empty\n" i;
+				flush stdout;*)
 				let elem = ref Terminate in
 				Mutex.lock mutex_aray.(i);
 				elem := Queue.pop work_queue_aray.(i);
@@ -122,8 +124,8 @@ struct
 							State_set.iter 
 								(fun a -> 
 									let index = (Hashtbl.hash a) mod ncores in
-									printf "adding more work to thread %d\n" i;
-									flush stdout;
+									(*printf "adding more work to thread %d\n" i;
+									flush stdout;*)
 									Mutex.lock mutex_aray.(index);
 									Queue.push (New_element a) work_queue_aray.(index);
 									Mutex.unlock mutex_aray.(index);

@@ -350,10 +350,11 @@ and prove_fairs cont modl =
 				let levl1 = levl^"1"
 				and levl2 = levl^"2" in
 				let fresh_fairs = (if !orig_fairs = [] then fresh_fairs fairs else !orig_fairs) in
+				Parallel_worker.add_to_global_merge s levl modl;
 				Queue.push (Parallel_worker.New_element s) Parallel_worker.work_queue_aray.(index);
 				let f ia = 
-					Printf.printf "processing proving...\n";
-					flush stdout;
+					(*Printf.printf "processing proving...\n";
+					flush stdout;*)
 					if !has_fairs then begin
 						let result2 = prove_fairs (Cont (State_set.empty, fresh_fairs, levl2, subst_s fml2 y (State ia), Basic true, Basic false, [], [])) modl in
 						if not result2 then begin
@@ -369,14 +370,15 @@ and prove_fairs cont modl =
 								Parallel_worker.stop_world true;
 								None
 							end else begin
-								Parallel_worker.add_to_global_merge ia levl modl;
-								let next_set = next s modl.transitions modl.var_index_tbl in
+								(*Parallel_worker.add_to_global_merge ia levl modl;*)
+								let next_set = next ia modl.transitions modl.var_index_tbl in
 								let filtered_next = State_set.filter 
 									(fun e -> 
 										(* let i = (Hashtbl.hash e) mod ncores in *)
 										not (Parallel_worker.in_global_merge e levl modl)
 									) 
 									next_set in
+								State_set.iter (fun a -> Parallel_worker.add_to_global_merge a levl modl) filtered_next;
 								Some filtered_next
 							end
 						end
@@ -391,14 +393,15 @@ and prove_fairs cont modl =
 								Parallel_worker.stop_world true;
 								None
 							end else begin
-								Parallel_worker.add_to_global_merge ia levl modl;
-								let next_set = next s modl.transitions modl.var_index_tbl in
+								(*Parallel_worker.add_to_global_merge ia levl modl;*)
+								let next_set = next ia modl.transitions modl.var_index_tbl in
 								let filtered_next = State_set.filter 
 									(fun e -> 
 										(* let i = (Hashtbl.hash e) mod ncores in *)
 										not (Parallel_worker.in_global_merge e levl modl)
 									) 
 									next_set in
+								State_set.iter (fun a -> Parallel_worker.add_to_global_merge a levl modl) filtered_next;
 								Some filtered_next
 							end
 						end

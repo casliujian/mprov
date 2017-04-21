@@ -4,6 +4,13 @@ linux: term.ml formula.ml modul.ml prover.ml worker.ml prover_multicore.ml prove
 	# ocamlopt -thread -c worker.ml unix.cmxa threads.cmxa
 	ocamlopt -thread -o sctl unix.cmxa threads.cmxa term.ml formula.ml modul.ml prover.ml worker.ml prover_multicore.ml prover_output.ml parser.mli parser.ml lexer.ml main.ml
 
+linux-byte: term.ml formula.ml modul.ml prover.ml worker.ml prover_multicore.ml prover_output.ml lexer.mll parser.mly main.ml
+	ocamllex lexer.mll       
+	ocamlyacc parser.mly 
+	# ocamlopt -thread -c worker.ml unix.cmxa threads.cmxa
+	ocamlc -thread -o sctl unix.cma threads.cma term.ml formula.ml modul.ml prover.ml worker.ml prover_multicore.ml prover_output.ml parser.mli parser.ml lexer.ml main.ml
+
+
 win: term.ml formula.ml modul.ml prover.ml worker.ml prover_multicore.ml prover_output.ml lexer.mll parser.mly main.ml
 	ocamllex lexer.mll       
 	ocamlyacc parser.mly 
@@ -18,4 +25,5 @@ clean:
 	rm -f *.bak
 	rm -f sctl
 	rm -f sctl.exe
+	rm -f *.eventlog
 
